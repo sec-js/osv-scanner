@@ -3,8 +3,9 @@ package semantic
 import (
 	"fmt"
 	"math/big"
-	"regexp"
 	"strings"
+
+	"github.com/google/osv-scanner/v2/internal/cachedregexp"
 )
 
 type PyPIVersion struct {
@@ -67,7 +68,7 @@ func parseLetterVersion(letter, number string) letterAndNumber {
 }
 
 func parseLocalVersion(local string) (parts []string) {
-	for _, part := range regexp.MustCompile(`[._-]`).Split(local, -1) {
+	for _, part := range cachedregexp.MustCompile(`[._-]`).Split(local, -1) {
 		parts = append(parts, strings.ToLower(part))
 	}
 
@@ -88,16 +89,16 @@ func normalizePyPILegacyPart(part string) string {
 		part = "@"
 	}
 
-	if regexp.MustCompile(`\d`).MatchString(part[:1]) {
+	if cachedregexp.MustCompile(`\d`).MatchString(part[:1]) {
 		// pad for numeric comparison
 		return fmt.Sprintf("%08s", part)
 	}
 
-	return fmt.Sprintf("*%s", part)
+	return "*" + part
 }
 
 func parsePyPIVersionParts(str string) (parts []string) {
-	re := regexp.MustCompile(`(\d+|[a-z]+|\.|-)`)
+	re := cachedregexp.MustCompile(`(\d+|[a-z]+|\.|-)`)
 
 	splits := re.FindAllString(str, -1)
 	splits = append(splits, "final")
@@ -137,7 +138,7 @@ func parsePyPIVersion(str string) PyPIVersion {
 	str = strings.ToLower(str)
 
 	// from https://peps.python.org/pep-0440/#appendix-b-parsing-version-strings-with-regular-expressions
-	re := regexp.MustCompile(`^\s*v?(?:(?:(?P<epoch>[0-9]+)!)?(?P<release>[0-9]+(?:\.[0-9]+)*)(?P<pre>[-_\.]?(?P<pre_l>(a|b|c|rc|alpha|beta|pre|preview))[-_\.]?(?P<pre_n>[0-9]+)?)?(?P<post>(?:-(?P<post_n1>[0-9]+))|(?:[-_\.]?(?P<post_l>post|rev|r)[-_\.]?(?P<post_n2>[0-9]+)?))?(?P<dev>[-_\.]?(?P<dev_l>dev)[-_\.]?(?P<dev_n>[0-9]+)?)?)(?:\+(?P<local>[a-z0-9]+(?:[-_\.][a-z0-9]+)*))?\s*$`)
+	re := cachedregexp.MustCompile(`^\s*v?(?:(?:(?P<epoch>[0-9]+)!)?(?P<release>[0-9]+(?:\.[0-9]+)*)(?P<pre>[-_\.]?(?P<pre_l>(a|b|c|rc|alpha|beta|pre|preview))[-_\.]?(?P<pre_n>[0-9]+)?)?(?P<post>(?:-(?P<post_n1>[0-9]+))|(?:[-_\.]?(?P<post_l>post|rev|r)[-_\.]?(?P<post_n2>[0-9]+)?))?(?P<dev>[-_\.]?(?P<dev_l>dev)[-_\.]?(?P<dev_n>[0-9]+)?)?)(?:\+(?P<local>[a-z0-9]+(?:[-_\.][a-z0-9]+)*))?\s*$`)
 	match := re.FindStringSubmatch(str)
 
 	if len(match) == 0 {
@@ -183,16 +184,6 @@ func (pv PyPIVersion) compareRelease(pw PyPIVersion) int {
 	return pv.release.Cmp(pw.release)
 }
 
-func (pv PyPIVersion) preIndex() int {
-	for i, pre := range []string{"a", "b", "rc"} {
-		if pre == pv.pre.letter {
-			return i
-		}
-	}
-
-	panic(fmt.Sprintf("unknown prefix %s", pv.pre.letter))
-}
-
 // Checks if this PyPIVersion should apply a sort trick when comparing pre,
 // which ensures that i.e. 1.0.dev0 is before 1.0a0.
 func (pv PyPIVersion) shouldApplyPreTrick() bool {
@@ -221,12 +212,8 @@ func (pv PyPIVersion) comparePre(pw PyPIVersion) int {
 	case pw.pre.number == nil:
 		return -1
 	default:
-		ai := pv.preIndex()
-		bi := pw.preIndex()
-
-		if ai == bi {
-			return pv.pre.number.Cmp(pw.pre.number)
-		}
+		ai := pv.pre.letter[0]
+		bi := pw.pre.letter[0]
 
 		if ai > bi {
 			return +1
@@ -235,7 +222,7 @@ func (pv PyPIVersion) comparePre(pw PyPIVersion) int {
 			return -1
 		}
 
-		return 0
+		return pv.pre.number.Cmp(pw.pre.number)
 	}
 }
 
@@ -281,11 +268,11 @@ func (pv PyPIVersion) compareDev(pw PyPIVersion) int {
 
 // Compares the local segment of each version
 func (pv PyPIVersion) compareLocal(pw PyPIVersion) int {
-	min := minInt(len(pv.local), len(pw.local))
+	minVersionLength := min(len(pv.local), len(pw.local))
 
 	var compare int
 
-	for i := 0; i < min; i++ {
+	for i := range minVersionLength {
 		ai, aIsNumber := convertToBigInt(pv.local[i])
 		bi, bIsNumber := convertToBigInt(pw.local[i])
 

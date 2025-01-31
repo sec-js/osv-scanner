@@ -1,12 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:base"
-  ],
+  "extends": ["config:base"],
   "timezone": "Australia/Sydney",
   "schedule": ["before 6am on monday"],
   "labels": ["dependencies"],
   "postUpdateOptions": ["gomodTidy"],
+  "osvVulnerabilityAlerts": true,
+  "lockFileMaintenance": { "enabled": true },
   "packageRules": [
     {
       "matchUpdateTypes": ["major"],
@@ -18,13 +18,17 @@
       "groupName": "osv-scanner minor"
     },
     {
-      "matchPaths": [".github/"],
+      "matchFileNames": [".github/**"],
       "groupName": "workflows"
     },
     {
-      "matchPaths": ["**/fixtures/"],
-      "groupName": "Ignore testing fixtures",
+      "matchDepTypes": ["golang"],
       "enabled": false
     }
-  ]
+  ],
+  "constraints": {
+    "go": "1.23.5"
+  },
+  "ignorePaths": ["**/fixtures/**", "**/fixtures-go/**"],
+  "ignoreDeps": ["golang.org/x/vuln"]
 }

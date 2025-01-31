@@ -1,10 +1,11 @@
 package lockfile_test
 
 import (
-	"github.com/google/osv-scanner/pkg/lockfile"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/osv-scanner/v2/pkg/lockfile"
 )
 
 func TestFromCSVRows(t *testing.T) {
@@ -138,7 +139,6 @@ func TestFromCSVRows(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -240,7 +240,6 @@ func TestFromCSVRows_Errors(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -480,7 +479,6 @@ func TestFromCSVFile(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -528,7 +526,6 @@ func TestFromCSVFile_Errors(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 

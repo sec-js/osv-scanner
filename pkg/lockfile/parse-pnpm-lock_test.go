@@ -1,16 +1,69 @@
 package lockfile_test
 
 import (
-	"github.com/google/osv-scanner/pkg/lockfile"
+	"io/fs"
 	"testing"
+
+	"github.com/google/osv-scanner/v2/pkg/lockfile"
 )
+
+func TestPnpmLockExtractor_ShouldExtract(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{
+			name: "",
+			path: "",
+			want: false,
+		},
+		{
+			name: "",
+			path: "pnpm-lock.yaml",
+			want: true,
+		},
+		{
+			name: "",
+			path: "path/to/my/pnpm-lock.yaml",
+			want: true,
+		},
+		{
+			name: "",
+			path: "path/to/my/pnpm-lock.yaml/file",
+			want: false,
+		},
+		{
+			name: "",
+			path: "path/to/my/pnpm-lock.yaml.file",
+			want: false,
+		},
+		{
+			name: "",
+			path: "path.to.my.pnpm-lock.yaml",
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := lockfile.PnpmLockExtractor{}
+			got := e.ShouldExtract(tt.path)
+			if got != tt.want {
+				t.Errorf("Extract() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestParsePnpmLock_FileDoesNotExist(t *testing.T) {
 	t.Parallel()
 
 	packages, err := lockfile.ParsePnpmLock("fixtures/pnpm/does-not-exist")
 
-	expectErrContaining(t, err, "could not read")
+	expectErrIs(t, err, fs.ErrNotExist)
 	expectPackages(t, packages, []lockfile.PackageDetails{})
 }
 
@@ -19,14 +72,26 @@ func TestParsePnpmLock_InvalidYaml(t *testing.T) {
 
 	packages, err := lockfile.ParsePnpmLock("fixtures/pnpm/not-yaml.txt")
 
-	expectErrContaining(t, err, "could not parse")
+	expectErrContaining(t, err, "could not extract from")
+	expectPackages(t, packages, []lockfile.PackageDetails{})
+}
+
+func TestParsePnpmLock_Empty(t *testing.T) {
+	t.Parallel()
+
+	packages, err := lockfile.ParsePnpmLock("fixtures/pnpm/empty.yaml")
+
+	if err != nil {
+		t.Errorf("Got unexpected error: %v", err)
+	}
+
 	expectPackages(t, packages, []lockfile.PackageDetails{})
 }
 
 func TestParsePnpmLock_NoPackages(t *testing.T) {
 	t.Parallel()
 
-	packages, err := lockfile.ParsePnpmLock("fixtures/pnpm/empty.yaml")
+	packages, err := lockfile.ParsePnpmLock("fixtures/pnpm/no-packages.yaml")
 
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
@@ -39,6 +104,25 @@ func TestParsePnpmLock_OnePackage(t *testing.T) {
 	t.Parallel()
 
 	packages, err := lockfile.ParsePnpmLock("fixtures/pnpm/one-package.yaml")
+
+	if err != nil {
+		t.Errorf("Got unexpected error: %v", err)
+	}
+
+	expectPackages(t, packages, []lockfile.PackageDetails{
+		{
+			Name:      "acorn",
+			Version:   "8.7.0",
+			Ecosystem: lockfile.PnpmEcosystem,
+			CompareAs: lockfile.PnpmEcosystem,
+		},
+	})
+}
+
+func TestParsePnpmLock_OnePackageV6Lockfile(t *testing.T) {
+	t.Parallel()
+
+	packages, err := lockfile.ParsePnpmLock("fixtures/pnpm/one-package-v6-lockfile.yaml")
 
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
@@ -86,6 +170,25 @@ func TestParsePnpmLock_ScopedPackages(t *testing.T) {
 		{
 			Name:      "@typescript-eslint/types",
 			Version:   "5.13.0",
+			Ecosystem: lockfile.PnpmEcosystem,
+			CompareAs: lockfile.PnpmEcosystem,
+		},
+	})
+}
+
+func TestParsePnpmLock_ScopedPackagesV6Lockfile(t *testing.T) {
+	t.Parallel()
+
+	packages, err := lockfile.ParsePnpmLock("fixtures/pnpm/scoped-packages-v6-lockfile.yaml")
+
+	if err != nil {
+		t.Errorf("Got unexpected error: %v", err)
+	}
+
+	expectPackages(t, packages, []lockfile.PackageDetails{
+		{
+			Name:      "@typescript-eslint/types",
+			Version:   "5.57.1",
 			Ecosystem: lockfile.PnpmEcosystem,
 			CompareAs: lockfile.PnpmEcosystem,
 		},
@@ -328,6 +431,7 @@ func TestParsePnpmLock_Tarball(t *testing.T) {
 			Ecosystem: lockfile.PnpmEcosystem,
 			CompareAs: lockfile.PnpmEcosystem,
 			Commit:    "",
+			DepGroups: []string{"dev"},
 		},
 	})
 }
@@ -459,5 +563,35 @@ func TestParsePnpmLock_Files(t *testing.T) {
 			CompareAs: lockfile.NpmEcosystem,
 			Commit:    "",
 		},
+		{
+			Name:      "a-nested-local-package",
+			Version:   "1.0.0",
+			Ecosystem: lockfile.NpmEcosystem,
+			CompareAs: lockfile.NpmEcosystem,
+			Commit:    "",
+		},
+		{
+			Name:      "one-up",
+			Version:   "1.0.0",
+			Ecosystem: lockfile.NpmEcosystem,
+			CompareAs: lockfile.NpmEcosystem,
+			Commit:    "",
+		},
+		{
+			Name:      "one-up-with-peer",
+			Version:   "1.0.0",
+			Ecosystem: lockfile.NpmEcosystem,
+			CompareAs: lockfile.NpmEcosystem,
+			Commit:    "",
+		},
 	})
+}
+
+func TestParsePnpmLock_InvalidPackagePath(t *testing.T) {
+	t.Parallel()
+
+	packages, err := lockfile.ParsePnpmLock("fixtures/pnpm/invalid-package-path.yaml")
+
+	expectErrContaining(t, err, "invalid package path")
+	expectPackages(t, packages, []lockfile.PackageDetails{})
 }

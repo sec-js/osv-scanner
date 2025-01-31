@@ -2,10 +2,14 @@ package semantic_test
 
 import (
 	"bufio"
-	"github.com/google/osv-scanner/internal/semantic"
+	"errors"
+	"io/fs"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/google/osv-scanner/v2/internal/semantic"
+	"github.com/google/osv-scanner/v2/pkg/models"
 )
 
 func expectedResult(t *testing.T, comparator string) int {
@@ -42,7 +46,7 @@ func compareWord(t *testing.T, result int) string {
 	}
 }
 
-func runAgainstEcosystemFixture(t *testing.T, ecosystem semantic.Ecosystem, filename string) {
+func runAgainstEcosystemFixture(t *testing.T, ecosystem models.Ecosystem, filename string) {
 	t.Helper()
 
 	file, err := os.Open("fixtures/" + filename)
@@ -89,7 +93,7 @@ func runAgainstEcosystemFixture(t *testing.T, ecosystem semantic.Ecosystem, file
 	}
 }
 
-func parseAsVersion(t *testing.T, str string, ecosystem semantic.Ecosystem) semantic.Version {
+func parseAsVersion(t *testing.T, str string, ecosystem models.Ecosystem) semantic.Version {
 	t.Helper()
 
 	v, err := semantic.Parse(str, ecosystem)
@@ -103,7 +107,7 @@ func parseAsVersion(t *testing.T, str string, ecosystem semantic.Ecosystem) sema
 
 func expectCompareResult(
 	t *testing.T,
-	ecosystem semantic.Ecosystem,
+	ecosystem models.Ecosystem,
 	a string,
 	b string,
 	expectedResult int,
@@ -129,7 +133,7 @@ func expectCompareResult(
 
 func expectEcosystemCompareResult(
 	t *testing.T,
-	ecosystem semantic.Ecosystem,
+	ecosystem models.Ecosystem,
 	a string,
 	c string,
 	b string,
@@ -216,13 +220,49 @@ func TestVersion_Compare_Ecosystems(t *testing.T) {
 			name: "Debian",
 			file: "debian-versions-generated.txt",
 		},
+		{
+			name: "CRAN",
+			file: "cran-versions.txt",
+		},
+		{
+			name: "CRAN",
+			file: "cran-versions-generated.txt",
+		},
+		{
+			name: "Alpine",
+			file: "alpine-versions.txt",
+		},
+		{
+			name: "Alpine",
+			file: "alpine-versions-generated.txt",
+		},
+		{
+			name: "Red Hat",
+			file: "redhat-versions.txt",
+		},
 	}
+
+	// we don't check the generated fixture for Red Hat in due to its size
+	// so we only add it if it exists, so that people can have it locally
+	// without needing to do a dance with git everytime they commit
+	_, err := os.Stat("fixtures/redhat-versions-generated.txt")
+	if err == nil {
+		tests = append(tests, struct {
+			name string
+			file string
+		}{
+			name: "Red Hat",
+			file: "redhat-versions-generated.txt",
+		})
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("fixtures/redhat-versions-generated.txt exists but could not be read: %v", err)
+	}
+
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			runAgainstEcosystemFixture(t, semantic.Ecosystem(tt.name), tt.file)
+			runAgainstEcosystemFixture(t, models.Ecosystem(tt.name), tt.file)
 		})
 	}
 }
