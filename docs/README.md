@@ -1,25 +1,39 @@
 # README
-The [OSV-Scanner docs](https://google.github.io/osv-scanner) are hosted on a [GitHub page](https://pages.github.com/). 
 
-Changes in documentation, new features, etc. are added to the [working docs](working_docs/). Docs in the working folder do not represent the current release of OSV-Scanner.  
+The [OSV-Scanner docs](https://google.github.io/osv-scanner) are hosted on a [GitHub page](https://pages.github.com/).
 
 ## Running docs locally
-To run docs locally, you will need [Jekyll](https://jekyllrb.com/docs/installation/) on your machine. 
 
-Here are other [pre-requisites] and instructions for running the [docs locally].
+To run the docs locally:
 
-[pre-requisites]: https://docs.github.com/en/pages/setting-up-a-github-pages-site-with-jekyll/testing-your-github-pages-site-locally-with-jekyll#prerequisites
+- Install `ruby (>= 3.1.0)`. This should come with `bundler`.
+  - On Debian, you need to install them separately:
+    - `ruby`
+    - `ruby-bundler`
+- In this directory:
+  - `bundle config set --local path 'vendor/bundle'` (you can skip this step if serving from this directory, as the config is already saved in `.bundle/config`)
+  - `bundle install`
+  - `bundle exec jekyll serve`
+
+Here's the full documentation on github for running the [docs locally].
+
 [docs locally]: https://docs.github.com/en/pages/setting-up-a-github-pages-site-with-jekyll/testing-your-github-pages-site-locally-with-jekyll#building-your-site-locally
 
-## Contributing to the docs
-Documentation contributions are welcome!
+## Formatting docs
 
-OSV-Scanner docs are splic between the `current` folder and the `working_docs` folder. Docs within the `current` folder reflect the current state of OSV-Scanner. Docs within `working_docs` may include features and options that are not available in the currently released version of OSV-Scanner. 
+We use [Prettier](https://prettier.io/) to standardize the format of markdown and config files.
 
-Contributors should make changes to the documentation in the[working docs](working_docs/) directory. Maintainers will copy text from `working_docs` into `current` as neccesary to keep the `current` docs up-to-date.  
+This requires [node/npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) to be installed.
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for contribution guidelines. 
+### Running the formatter
+
+Run the following in the project directory:
+
+```shell
+./scripts/run_formatters.sh
+```
 
 ## Documentation theme
+
 We are using the [Just the Docs](https://just-the-docs.github.io/just-the-docs/)
 theme.

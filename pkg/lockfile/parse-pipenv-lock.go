@@ -3,7 +3,9 @@ package lockfile
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"path/filepath"
+
+	"golang.org/x/exp/maps"
 )
 
 type PipenvPackage struct {
@@ -17,49 +19,60 @@ type PipenvLock struct {
 
 const PipenvEcosystem = PipEcosystem
 
-func ParsePipenvLock(pathToLockfile string) ([]PackageDetails, error) {
+type PipenvLockExtractor struct{}
+
+func (e PipenvLockExtractor) ShouldExtract(path string) bool {
+	return filepath.Base(path) == "Pipfile.lock"
+}
+
+func (e PipenvLockExtractor) Extract(f DepFile) ([]PackageDetails, error) {
 	var parsedLockfile *PipenvLock
 
-	lockfileContents, err := os.ReadFile(pathToLockfile)
+	err := json.NewDecoder(f).Decode(&parsedLockfile)
 
 	if err != nil {
-		return []PackageDetails{}, fmt.Errorf("could not read %s: %w", pathToLockfile, err)
+		return []PackageDetails{}, fmt.Errorf("could not extract from %s: %w", f.Path(), err)
 	}
 
-	err = json.Unmarshal(lockfileContents, &parsedLockfile)
+	details := make(map[string]PackageDetails)
 
-	if err != nil {
-		return []PackageDetails{}, fmt.Errorf("could not parse %s: %w", pathToLockfile, err)
-	}
+	addPkgDetails(details, parsedLockfile.Packages, "")
+	addPkgDetails(details, parsedLockfile.PackagesDev, "dev")
 
-	packages := make(
-		[]PackageDetails,
-		0,
-		// len cannot return negative numbers, but the types can't reflect that
-		uint64(len(parsedLockfile.Packages))+uint64(len(parsedLockfile.PackagesDev)),
-	)
+	return maps.Values(details), nil
+}
 
-	for name, pipenvPackage := range parsedLockfile.Packages {
+func addPkgDetails(details map[string]PackageDetails, packages map[string]PipenvPackage, group string) {
+	for name, pipenvPackage := range packages {
 		if pipenvPackage.Version == "" {
 			continue
 		}
 
-		packages = append(packages, PackageDetails{
-			Name:      name,
-			Version:   pipenvPackage.Version[2:],
-			Ecosystem: PipenvEcosystem,
-			CompareAs: PipenvEcosystem,
-		})
-	}
+		version := pipenvPackage.Version[2:]
 
-	for name, pipenvPackage := range parsedLockfile.PackagesDev {
-		packages = append(packages, PackageDetails{
-			Name:      name,
-			Version:   pipenvPackage.Version[2:],
-			Ecosystem: PipenvEcosystem,
-			CompareAs: PipenvEcosystem,
-		})
+		if _, ok := details[name+"@"+version]; !ok {
+			pkgDetails := PackageDetails{
+				Name:      name,
+				Version:   version,
+				Ecosystem: PipenvEcosystem,
+				CompareAs: PipenvEcosystem,
+			}
+			if group != "" {
+				pkgDetails.DepGroups = append(pkgDetails.DepGroups, group)
+			}
+			details[name+"@"+version] = pkgDetails
+		}
 	}
+}
 
-	return packages, nil
+var _ Extractor = PipenvLockExtractor{}
+
+//nolint:gochecknoinits
+func init() {
+	registerExtractor("Pipfile.lock", PipenvLockExtractor{})
+}
+
+// Deprecated: use PipenvLockExtractor.Extract instead
+func ParsePipenvLock(pathToLockfile string) ([]PackageDetails, error) {
+	return extractFromFile(pathToLockfile, PipenvLockExtractor{})
 }
