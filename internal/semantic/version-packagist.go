@@ -1,9 +1,10 @@
 package semantic
 
 import (
-	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/google/osv-scanner/v2/internal/cachedregexp"
 )
 
 func canonicalizePackagistVersion(v string) string {
@@ -15,9 +16,9 @@ func canonicalizePackagistVersion(v string) string {
 	//   the trimming...)
 	v = strings.TrimPrefix(strings.TrimPrefix(v, "v"), "V")
 
-	v = regexp.MustCompile(`[-_+]`).ReplaceAllString(v, ".")
-	v = regexp.MustCompile(`([^\d.])(\d)`).ReplaceAllString(v, "$1.$2")
-	v = regexp.MustCompile(`(\d)([^\d.])`).ReplaceAllString(v, "$1.$2")
+	v = cachedregexp.MustCompile(`[-_+]`).ReplaceAllString(v, ".")
+	v = cachedregexp.MustCompile(`([^\d.])(\d)`).ReplaceAllString(v, "$1.$2")
+	v = cachedregexp.MustCompile(`(\d)([^\d.])`).ReplaceAllString(v, "$1.$2")
 
 	return v
 }
@@ -52,11 +53,11 @@ func comparePackagistSpecialVersions(a, b string) int {
 }
 
 func comparePackagistComponents(a, b []string) int {
-	min := minInt(len(a), len(b))
+	minLength := min(len(a), len(b))
 
 	var compare int
 
-	for i := 0; i < min; i++ {
+	for i := range minLength {
 		ai, aIsNumber := convertToBigInt(a[i])
 		bi, bIsNumber := convertToBigInt(b[i])
 

@@ -7,7 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/osv-scanner/pkg/lockfile"
+	"github.com/google/osv-scanner/v2/internal/output"
+	"github.com/google/osv-scanner/v2/pkg/lockfile"
 )
 
 func expectNumberOfParsersCalled(t *testing.T, numberOfParsersCalled int) {
@@ -30,8 +31,9 @@ func expectNumberOfParsersCalled(t *testing.T, numberOfParsersCalled int) {
 
 	if numberOfParsersCalled != count {
 		t.Errorf(
-			"Expected %d parsers to have been called, but had %d",
+			"Expected %d %s to have been called, but had %d",
 			count,
+			output.Form(count, "parser", "parsers"),
 			numberOfParsersCalled,
 		)
 	}
@@ -48,6 +50,7 @@ func TestFindParser(t *testing.T) {
 		"go.mod",
 		"gradle.lockfile",
 		"mix.lock",
+		"pdm.lock",
 		"Pipfile.lock",
 		"package-lock.json",
 		"packages.lock.json",
@@ -55,6 +58,7 @@ func TestFindParser(t *testing.T) {
 		"poetry.lock",
 		"pom.xml",
 		"pubspec.lock",
+		"renv.lock",
 		"requirements.txt",
 		"yarn.lock",
 	}
@@ -96,15 +100,18 @@ func TestParse_FindsExpectedParsers(t *testing.T) {
 		"conan.lock",
 		"Gemfile.lock",
 		"go.mod",
+		"gradle/verification-metadata.xml",
 		"gradle.lockfile",
 		"mix.lock",
 		"Pipfile.lock",
+		"pdm.lock",
 		"package-lock.json",
 		"packages.lock.json",
 		"pnpm-lock.yaml",
 		"poetry.lock",
 		"pom.xml",
 		"pubspec.lock",
+		"renv.lock",
 		"requirements.txt",
 		"yarn.lock",
 	}
@@ -131,6 +138,14 @@ func TestParse_ParserNotFound(t *testing.T) {
 	t.Parallel()
 
 	_, err := lockfile.Parse("/path/to/my/", "")
+
+	expectErrIs(t, err, lockfile.ErrParserNotFound)
+}
+
+func TestParse_ParserNotFound_WithExplicitParseAs(t *testing.T) {
+	t.Parallel()
+
+	_, err := lockfile.Parse("/path/to/my/", "unsupported")
 
 	if err == nil {
 		t.Errorf("Expected to get an error but did not")
@@ -290,7 +305,6 @@ func TestPackages_Ecosystems(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 

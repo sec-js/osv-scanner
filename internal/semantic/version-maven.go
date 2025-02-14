@@ -2,9 +2,10 @@ package semantic
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/google/osv-scanner/v2/internal/cachedregexp"
 )
 
 type mavenVersionToken struct {
@@ -43,7 +44,6 @@ func (vt *mavenVersionToken) equal(wt mavenVersionToken) bool {
 	return vt.prefix == wt.prefix && vt.value == wt.value
 }
 
-//nolint:gochecknoglobals // this is read-only and the nicest implementation
 var keywordOrder = []string{"alpha", "beta", "milestone", "rc", "snapshot", "", "sp"}
 
 func findKeywordOrder(keyword string) int {
@@ -107,7 +107,7 @@ func (mv MavenVersion) equal(mw MavenVersion) bool {
 		return false
 	}
 
-	for i := 0; i < len(mv.tokens); i++ {
+	for i := range len(mv.tokens) {
 		if !mv.tokens[i].equal(mw.tokens[i]) {
 			return false
 		}
@@ -136,12 +136,12 @@ func newMavenNullVersionToken(token mavenVersionToken) mavenVersionToken {
 }
 
 func (mv MavenVersion) lessThan(mw MavenVersion) bool {
-	max := maxInt(len(mv.tokens), len(mw.tokens))
+	numberOfTokens := max(len(mv.tokens), len(mw.tokens))
 
 	var left mavenVersionToken
 	var right mavenVersionToken
 
-	for i := 0; i < max; i++ {
+	for i := range numberOfTokens {
 		// the shorter one padded with enough "null" values with matching prefix to
 		// have the same length as the longer one. Padded "null" values depend on
 		// the prefix of the other version: 0 for '.', "" for '-'
@@ -175,11 +175,11 @@ func (mv MavenVersion) lessThan(mw MavenVersion) bool {
 // According to Maven's implementation, any non-digit is a "character":
 // https://github.com/apache/maven/blob/965aaa53da5c2d814e94a41d37142d0d6830375d/maven-artifact/src/main/java/org/apache/maven/artifact/versioning/ComparableVersion.java#L627
 func mavenFindTransitions(token string) (ints []int) {
-	for _, span := range regexp.MustCompile(`\D\d`).FindAllStringIndex(token, -1) {
+	for _, span := range cachedregexp.MustCompile(`\D\d`).FindAllStringIndex(token, -1) {
 		ints = append(ints, span[0]+1)
 	}
 
-	for _, span := range regexp.MustCompile(`\d\D`).FindAllStringIndex(token, -1) {
+	for _, span := range cachedregexp.MustCompile(`\d\D`).FindAllStringIndex(token, -1) {
 		ints = append(ints, span[0]+1)
 	}
 
@@ -269,7 +269,7 @@ func newMavenVersion(str string) MavenVersion {
 			}
 
 			// remove any leading zeros
-			if d, isNumber := convertToBigInt(str); isNumber {
+			if d, isNumber := convertToBigInt(current); isNumber {
 				current = d.String()
 			}
 
@@ -283,7 +283,7 @@ func newMavenVersion(str string) MavenVersion {
 
 	i := len(tokens) - 1
 
-	for i >= 0 {
+	for i > 0 {
 		if tokens[i].shouldTrim() {
 			tokens = append(tokens[:i], tokens[i+1:]...)
 			i--

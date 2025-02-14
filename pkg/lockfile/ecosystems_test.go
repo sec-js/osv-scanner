@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/osv-scanner/pkg/lockfile"
+	"github.com/google/osv-scanner/v2/pkg/lockfile"
 )
 
 func numberOfLockfileParsers(t *testing.T) int {
@@ -35,10 +35,10 @@ func TestKnownEcosystems(t *testing.T) {
 	expectedCount := numberOfLockfileParsers(t)
 
 	// - npm, yarn, and pnpm,
-	// - pip, poetry, and pipenv,
-	// - maven and gradle,
+	// - pip, poetry, pdm and pipenv,
+	// - maven, gradle, and gradle/verification-metadata
 	// all use the same ecosystem so "ignore" those parsers in the count
-	expectedCount -= 5
+	expectedCount -= 7
 
 	ecosystems := lockfile.KnownEcosystems()
 
